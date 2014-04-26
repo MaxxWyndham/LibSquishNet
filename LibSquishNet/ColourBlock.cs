@@ -113,5 +113,78 @@ namespace Squish
             // write the block
             WriteColourBlock(a, b, remapped, ref block, offset);
         }
+
+        static int Unpack565(byte[] packed, int offset, byte[] colour, int colouroffset)
+        {
+            // build the packed value
+            int value = (int)packed[offset + 0] | ((int)packed[offset + 1] << 8);
+
+            // get the components in the stored range
+            byte red = (byte)((value >> 11) & 0x1f);
+            byte green = (byte)((value >> 5) & 0x3f);
+            byte blue = (byte)(value & 0x1f);
+
+            // scale up to 8 bits
+            colour[colouroffset + 0] = (byte)((red << 3) | (red >> 2));
+            colour[colouroffset + 1] = (byte)((green << 2) | (green >> 4));
+            colour[colouroffset + 2] = (byte)((blue << 3) | (blue >> 2));
+            colour[colouroffset + 3] = 255;
+
+            // return the value
+            return value;
+        }
+
+        public static void DecompressColour(byte[] rgba, ref byte[] block, int offset, bool isDxt1)
+        {
+            // unpack the endpoints
+            byte[] codes = new byte[16];
+            int a = Unpack565(block, offset, codes, 0);
+            int b = Unpack565(block, offset + 2, codes, 4);
+
+            // generate the midpoints
+            for (int i = 0; i < 3; ++i)
+            {
+                int c = codes[i];
+                int d = codes[4 + i];
+
+                if (isDxt1 && a <= b)
+                {
+                    codes[8 + i] = (byte)((c + d) / 2);
+                    codes[12 + i] = 0;
+                }
+                else
+                {
+                    codes[8 + i] = (byte)((2 * c + d) / 3);
+                    codes[12 + i] = (byte)((c + 2 * d) / 3);
+                }
+            }
+
+            // fill in alpha for the intermediate values
+            codes[8 + 3] = 255;
+            codes[12 + 3] = (byte)(isDxt1 && a <= b ? 0 : 255);
+
+            // unpack the indices
+            byte[] indices = new byte[16];
+            for (int i = 0; i < 4; ++i)
+            {
+                int ind = 4 * i;
+                byte packed = block[offset + 4 + i];
+
+                indices[ind + 0] = (byte)(packed & 0x3);
+                indices[ind + 1] = (byte)((packed >> 2) & 0x3);
+                indices[ind + 2] = (byte)((packed >> 4) & 0x3);
+                indices[ind + 3] = (byte)((packed >> 6) & 0x3);
+            }
+
+            // store out the colours
+            for (int i = 0; i < 16; ++i)
+            {
+                byte coffset = (byte)(4 * indices[i]);
+                for (int j = 0; j < 4; ++j)
+                {
+                    rgba[4 * i + j] = codes[coffset + j];
+                }
+            }
+        }
     }
 }

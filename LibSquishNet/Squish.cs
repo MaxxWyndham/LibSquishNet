@@ -55,6 +55,86 @@ namespace Squish
             return blockcount * blocksize;
         }
 
+        public static void DecompressImage(byte[] rgba, int width, int height, ref byte[] blocks, SquishFlags flags)
+        {
+            // fix any bad flags
+            flags = FixFlags(flags);
+
+            // initialise the block input
+            int sourceBlock = 0;
+            int bytesPerBlock = ((flags & SquishFlags.kDxt1) != 0) ? 8 : 16;
+
+            // loop over blocks
+            for (int y = 0; y < height; y += 4)
+            {
+                for (int x = 0; x < width; x += 4)
+                {
+                    // decompress the block
+                    byte[] targetRgba = new byte[4 * 16];
+                    Decompress(targetRgba, ref blocks, sourceBlock, flags);
+
+                    // write the decompressed pixels to the correct image locations
+                    int sourcePixel = 0;
+                    for (int py = 0; py < 4; ++py)
+                    {
+                        for (int px = 0; px < 4; ++px)
+                        {
+                            // get the target location
+                            int sx = x + px;
+                            int sy = y + py;
+                            if (sx < width && sy < height)
+                            {
+                                int targetPixel = 4 * (width * sy + sx);
+
+                                // copy the rgba value
+                                for (int i = 0; i < 4; ++i)
+                                {
+                                    rgba[targetPixel] = targetRgba[sourcePixel];
+
+                                    targetPixel++;
+                                    sourcePixel++;
+                                }
+                            }
+                            else
+                            {
+                                // skip this pixel as its outside the image
+                                sourcePixel += 4;
+                            }
+                        }
+                    }
+
+                    // advance
+                    sourceBlock += bytesPerBlock;
+                }
+            }
+        }
+
+        static void Decompress(byte[] rgba, ref byte[] block, int offset, SquishFlags flags)
+        {
+            // fix any bad flags
+            flags = FixFlags(flags);
+
+            // get the block locations
+            int colourBlock = offset;
+            int alphaBlock = offset;
+            if ((flags & (SquishFlags.kDxt3 | SquishFlags.kDxt5)) != 0) { colourBlock += 8; }
+
+            // decompress colour
+            ColourBlock.DecompressColour(rgba, ref block, colourBlock, (flags & SquishFlags.kDxt1) != 0);
+
+            // decompress alpha separately if necessary
+            if ((flags & SquishFlags.kDxt3) != 0)
+            {
+                throw new NotImplementedException("Squish.DecompressAlphaDxt3");
+                //DecompressAlphaDxt3(rgba, alphaBlock);
+            }
+            else if ((flags & SquishFlags.kDxt5) != 0)
+            {
+                throw new NotImplementedException("Squish.DecompressAlphaDxt5");
+                //DecompressAlphaDxt5(rgba, alphaBlock);
+            }
+        }
+
         public static void CompressImage(byte[] rgba, int width, int height, ref byte[] blocks, SquishFlags flags)
         {
             // fix any bad flags
