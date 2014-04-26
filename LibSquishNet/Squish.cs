@@ -130,8 +130,7 @@ namespace Squish
             }
             else if ((flags & SquishFlags.kDxt5) != 0)
             {
-                throw new NotImplementedException("Squish.DecompressAlphaDxt5");
-                //DecompressAlphaDxt5(rgba, alphaBlock);
+                DecompressAlphaDxt5(rgba, ref block, alphaBlock);
             }
         }
 
@@ -461,6 +460,64 @@ namespace Squish
                     WriteAlphaBlock5( min5, max5, indices5, ref block, offset );
             else
                     WriteAlphaBlock7( min7, max7, indices7, ref block, offset );
+        }
+
+        static void DecompressAlphaDxt5(byte[] rgba, ref byte[] block, int offset)
+        {
+            // get the two alpha values
+            int alpha0 = block[offset + 0];
+            int alpha1 = block[offset + 1];
+
+            // compare the values to build the codebook
+            byte[] codes = new byte[8];
+            codes[0] = (byte)alpha0;
+            codes[1] = (byte)alpha1;
+            if (alpha0 <= alpha1)
+            {
+                // use 5-alpha codebook
+                for (int i = 1; i < 5; ++i)
+                {
+                    codes[1 + i] = (byte)(((5 - i) * alpha0 + i * alpha1) / 5);
+                }
+                codes[6] = 0;
+                codes[7] = 255;
+            }
+            else
+            {
+                // use 7-alpha codebook
+                for (int i = 1; i < 7; ++i)
+                {
+                    codes[1 + i] = (byte)(((7 - i) * alpha0 + i * alpha1) / 7);
+                }
+            }
+
+            // decode the indices
+            byte[] indices = new byte[16];
+            int src = offset + 2;
+            int dest = 0;
+            for (int i = 0; i < 2; ++i)
+            {
+                // grab 3 bytes
+                int value = 0;
+                for (int j = 0; j < 3; ++j)
+                {
+                    int b = block[src++];
+                    value |= (b << 8 * j);
+                }
+
+                // unpack 8 3-bit values from it
+                for (int j = 0; j < 8; ++j)
+                {
+                    int index = (value >> 3 * j) & 0x7;
+                    indices[dest++] = (byte)index;
+                }
+            }
+
+            // write out the indexed codebook values
+            for (int i = 0; i < 16; ++i)
+            {
+                rgba[4 * i + 3] = codes[indices[i]];
+            }
         }
     }
 }
