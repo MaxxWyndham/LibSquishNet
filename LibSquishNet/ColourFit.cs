@@ -20,6 +20,7 @@ namespace Squish
             if (isDxt1)
             {
                 Compress3(ref block, offset);
+
                 if (!m_colours.IsTransparent) {
                     Compress4(ref block, offset);
                 }

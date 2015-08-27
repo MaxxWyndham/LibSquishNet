@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 
 namespace Squish
 {
@@ -72,8 +73,8 @@ namespace Squish
             Vector3 grid = new Vector3(31.0f, 63.0f, 31.0f);
             Vector3 gridrcp = new Vector3(1.0f / 31.0f, 1.0f / 63.0f, 1.0f / 31.0f);
             Vector3 half = new Vector3(0.5f);
-            m_start = Vector3.Truncate(grid * start + half) * gridrcp;
-            m_end = Vector3.Truncate(grid * end + half) * gridrcp;
+            m_start = Helpers.Truncate(grid * start + half) * gridrcp;
+            m_end = Helpers.Truncate(grid * end + half) * gridrcp;
         }
 
         public override void Compress3(ref byte[] block, int offset)
@@ -98,7 +99,7 @@ namespace Squish
                 int idx = 0;
                 for (int j = 0; j < 3; ++j)
                 {
-                    float d = Vector3.LengthSquared(m_metric * (values[i] - codes[j]));
+                    float d = (m_metric * (values[i] - codes[j])).LengthSquared();
                     if (d < dist)
                     {
                         dist = d;

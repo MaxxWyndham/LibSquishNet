@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 
 namespace Squish
 {
@@ -16,7 +17,6 @@ namespace Squish
         {
             for (int i = 0; i < 6; i++) { m_x[i] = s; }
         }
-
 
         public static Sym3x3 ComputeWeightedCovariance(int n, Vector3[] points, float[] weights)
         {
@@ -59,14 +59,14 @@ namespace Squish
             {
                 // matrix multiply
                 Vector4 w = row0 * v.SplatX();
-                w = Vector4.MultiplyAdd(row1, v.SplatY(), w);
-                w = Vector4.MultiplyAdd(row2, v.SplatZ(), w);
+                w = Helpers.MultiplyAdd(row1, v.SplatY(), w);
+                w = Helpers.MultiplyAdd(row2, v.SplatZ(), w);
 
                 // get max component from xyz in all channels
                 Vector4 a = Vector4.Max(w.SplatX(), Vector4.Max(w.SplatY(), w.SplatZ()));
 
                 // divide through and advance
-                v = w * Vector4.Reciprocal(a);
+                v = w * Helpers.Reciprocal(a);
             }
 
             return v.ToVector3();

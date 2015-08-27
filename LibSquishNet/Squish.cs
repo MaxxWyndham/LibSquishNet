@@ -227,11 +227,11 @@ namespace Squish
             // compress alpha separately if necessary
             if ((flags & SquishFlags.kDxt3) != 0)
             {
-                CompressAlphaDxt3( rgba, mask, ref block, alphaBlock );
+                CompressAlphaDxt3(rgba, mask, ref block, alphaBlock);
             }
             else if ((flags & SquishFlags.kDxt5) != 0)
             {
-                CompressAlphaDxt5( rgba, mask, ref block, alphaBlock );
+                CompressAlphaDxt5(rgba, mask, ref block, alphaBlock);
             }
         }
 

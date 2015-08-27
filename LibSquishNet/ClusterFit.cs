@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 
 namespace Squish
 {
@@ -143,37 +144,37 @@ namespace Squish
                         Vector4 part2 = m_xsum_wsum - part1 - part0;
 
                         // compute least squares terms directly
-                        Vector4 alphax_sum = Vector4.MultiplyAdd(part1, half_half2, part0);
+                        Vector4 alphax_sum = Helpers.MultiplyAdd(part1, half_half2, part0);
                         Vector4 alpha2_sum = alphax_sum.SplatW();
 
-                        Vector4 betax_sum = Vector4.MultiplyAdd(part1, half_half2, part2);
+                        Vector4 betax_sum = Helpers.MultiplyAdd(part1, half_half2, part2);
                         Vector4 beta2_sum = betax_sum.SplatW();
 
                         Vector4 alphabeta_sum = (part1 * half_half2).SplatW();
 
                         // compute the least-squares optimal points
-                        Vector4 factor = Vector4.Reciprocal(Vector4.NegativeMultiplySubtract(alphabeta_sum, alphabeta_sum, alpha2_sum * beta2_sum));
-                        Vector4 a = Vector4.NegativeMultiplySubtract(betax_sum, alphabeta_sum, alphax_sum * beta2_sum) * factor;
-                        Vector4 b = Vector4.NegativeMultiplySubtract(alphax_sum, alphabeta_sum, betax_sum * alpha2_sum) * factor;
+                        Vector4 factor = Helpers.Reciprocal(Helpers.NegativeMultiplySubtract(alphabeta_sum, alphabeta_sum, alpha2_sum * beta2_sum));
+                        Vector4 a = Helpers.NegativeMultiplySubtract(betax_sum, alphabeta_sum, alphax_sum * beta2_sum) * factor;
+                        Vector4 b = Helpers.NegativeMultiplySubtract(alphax_sum, alphabeta_sum, betax_sum * alpha2_sum) * factor;
 
                         // clamp to the grid
                         a = Vector4.Min(one, Vector4.Max(zero, a));
                         b = Vector4.Min(one, Vector4.Max(zero, b));
-                        a = Vector4.Truncate(Vector4.MultiplyAdd(grid, a, half)) * gridrcp;
-                        b = Vector4.Truncate(Vector4.MultiplyAdd(grid, b, half)) * gridrcp;
+                        a = Helpers.Truncate(Helpers.MultiplyAdd(grid, a, half)) * gridrcp;
+                        b = Helpers.Truncate(Helpers.MultiplyAdd(grid, b, half)) * gridrcp;
 
                         // compute the error (we skip the constant xxsum)
-                        Vector4 e1 = Vector4.MultiplyAdd(a * a, alpha2_sum, b * b * beta2_sum);
-                        Vector4 e2 = Vector4.NegativeMultiplySubtract(a, alphax_sum, a * b * alphabeta_sum);
-                        Vector4 e3 = Vector4.NegativeMultiplySubtract(b, betax_sum, e2);
-                        Vector4 e4 = Vector4.MultiplyAdd(two, e3, e1);
+                        Vector4 e1 = Helpers.MultiplyAdd(a * a, alpha2_sum, b * b * beta2_sum);
+                        Vector4 e2 = Helpers.NegativeMultiplySubtract(a, alphax_sum, a * b * alphabeta_sum);
+                        Vector4 e3 = Helpers.NegativeMultiplySubtract(b, betax_sum, e2);
+                        Vector4 e4 = Helpers.MultiplyAdd( two, e3, e1);
 
                         // apply the metric to the error term
                         Vector4 e5 = e4 * m_metric;
                         Vector4 error = e5.SplatX() + e5.SplatY() + e5.SplatZ();
 
                         // keep the solution if it wins
-                        if (Vector4.CompareAnyLessThan(error, besterror))
+                        if (Helpers.CompareAnyLessThan(error, besterror))
                         {
                             beststart = a;
                             bestend = b;
@@ -210,7 +211,7 @@ namespace Squish
             }
 
             // save the block if necessary
-            if (Vector4.CompareAnyLessThan(besterror, m_besterror))
+            if (Helpers.CompareAnyLessThan(besterror, m_besterror))
             {
                 byte[] unordered = new byte[16];
                 for (int m = 0; m < besti; ++m)
@@ -275,37 +276,37 @@ namespace Squish
                             Vector4 part3 = m_xsum_wsum - part2 - part1 - part0;
 
                             // compute least squares terms directly
-                            Vector4 alphax_sum = Vector4.MultiplyAdd(part2, onethird_onethird2, Vector4.MultiplyAdd(part1, twothirds_twothirds2, part0));
+                            Vector4 alphax_sum = Helpers.MultiplyAdd(part2, onethird_onethird2, Helpers.MultiplyAdd(part1, twothirds_twothirds2, part0));
                             Vector4 alpha2_sum = alphax_sum.SplatW();
 
-                            Vector4 betax_sum = Vector4.MultiplyAdd(part1, onethird_onethird2, Vector4.MultiplyAdd(part2, twothirds_twothirds2, part3));
+                            Vector4 betax_sum = Helpers.MultiplyAdd(part1, onethird_onethird2, Helpers.MultiplyAdd(part2, twothirds_twothirds2, part3));
                             Vector4 beta2_sum = betax_sum.SplatW();
 
                             Vector4 alphabeta_sum = twonineths * (part1 + part2).SplatW();
 
                             // compute the least-squares optimal points
-                            Vector4 factor = Vector4.Reciprocal(Vector4.NegativeMultiplySubtract(alphabeta_sum, alphabeta_sum, alpha2_sum * beta2_sum));
-                            Vector4 a = Vector4.NegativeMultiplySubtract(betax_sum, alphabeta_sum, alphax_sum * beta2_sum) * factor;
-                            Vector4 b = Vector4.NegativeMultiplySubtract(alphax_sum, alphabeta_sum, betax_sum * alpha2_sum) * factor;
+                            Vector4 factor = Helpers.Reciprocal(Helpers.NegativeMultiplySubtract(alphabeta_sum, alphabeta_sum, alpha2_sum * beta2_sum));
+                            Vector4 a = Helpers.NegativeMultiplySubtract(betax_sum, alphabeta_sum, alphax_sum * beta2_sum) * factor;
+                            Vector4 b = Helpers.NegativeMultiplySubtract(alphax_sum, alphabeta_sum, betax_sum * alpha2_sum) * factor;
 
                             // clamp to the grid
                             a = Vector4.Min(one, Vector4.Max(zero, a));
                             b = Vector4.Min(one, Vector4.Max(zero, b));
-                            a = Vector4.Truncate(Vector4.MultiplyAdd(grid, a, half)) * gridrcp;
-                            b = Vector4.Truncate(Vector4.MultiplyAdd(grid, b, half)) * gridrcp;
+                            a = Helpers.Truncate(Helpers.MultiplyAdd(grid, a, half)) * gridrcp;
+                            b = Helpers.Truncate(Helpers.MultiplyAdd(grid, b, half)) * gridrcp;
 
                             // compute the error (we skip the constant xxsum)
-                            Vector4 e1 = Vector4.MultiplyAdd(a * a, alpha2_sum, b * b * beta2_sum);
-                            Vector4 e2 = Vector4.NegativeMultiplySubtract(a, alphax_sum, a * b * alphabeta_sum);
-                            Vector4 e3 = Vector4.NegativeMultiplySubtract(b, betax_sum, e2);
-                            Vector4 e4 = Vector4.MultiplyAdd(two, e3, e1);
+                            Vector4 e1 = Helpers.MultiplyAdd(a * a, alpha2_sum, b * b * beta2_sum);
+                            Vector4 e2 = Helpers.NegativeMultiplySubtract(a, alphax_sum, a * b * alphabeta_sum);
+                            Vector4 e3 = Helpers.NegativeMultiplySubtract(b, betax_sum, e2);
+                            Vector4 e4 = Helpers.MultiplyAdd(two, e3, e1);
 
                             // apply the metric to the error term
                             Vector4 e5 = e4 * m_metric;
                             Vector4 error = e5.SplatX() + e5.SplatY() + e5.SplatZ();
 
                             // keep the solution if it wins
-                            if (Vector4.CompareAnyLessThan(error, besterror))
+                            if (Helpers.CompareAnyLessThan(error, besterror))
                             {
                                 beststart = a;
                                 bestend = b;
@@ -350,7 +351,7 @@ namespace Squish
             }
 
             // save the block if necessary
-            if (Vector4.CompareAnyLessThan(besterror, m_besterror))
+            if (Helpers.CompareAnyLessThan(besterror, m_besterror))
             {
                 // remap the indices
                 byte[] unordered = new byte[16];
