@@ -141,7 +141,7 @@ namespace Squish
 
             // initialise the block output
             int targetBlock = 0;
-            int bytesPerBlock = ((flags & SquishFlags.kDxt1) != 0) ? 8 : 16;
+            int bytesPerBlock = (flags.HasFlag(SquishFlags.kDxt1) ? 8 : 16);
 
             // loop over blocks
             for (int y = 0; y < height; y += 4)
