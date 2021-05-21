@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31229.75
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibSquishNet", "LibSquishNet.csproj", "{8B187D46-BC8E-4B5A-AE68-326958BC9AAA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibSquishNet", "LibSquishNet\LibSquishNet.csproj", "{8B187D46-BC8E-4B5A-AE68-326958BC9AAA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibSquishNet.Tests", "..\LibSquishNet.Tests\LibSquishNet.Tests.csproj", "{3C99A2A5-D011-402A-81D6-A11FFF790721}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibSquishNet.Tests", "LibSquishNet.Tests\LibSquishNet.Tests.csproj", "{3C99A2A5-D011-402A-81D6-A11FFF790721}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
