@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 namespace Squish
 {
@@ -29,12 +30,12 @@ namespace Squish
 
     public static class Squish
     {
-        static SquishFlags FixFlags(SquishFlags flags)
+        private static SquishFlags fixFlags(SquishFlags flags)
         {
             // grab the flag bits
-            var method = flags & (SquishFlags.kDxt1 | SquishFlags.kDxt3 | SquishFlags.kDxt5);
-            var fit = flags & (SquishFlags.kColourIterativeClusterFit | SquishFlags.kColourClusterFit | SquishFlags.kColourRangeFit);
-            var extra = flags & SquishFlags.kWeightColourByAlpha;
+            SquishFlags method = flags & (SquishFlags.kDxt1 | SquishFlags.kDxt3 | SquishFlags.kDxt5);
+            SquishFlags fit = flags & (SquishFlags.kColourIterativeClusterFit | SquishFlags.kColourClusterFit | SquishFlags.kColourRangeFit);
+            SquishFlags extra = flags & SquishFlags.kWeightColourByAlpha;
 
             // set defaults
             if (method != SquishFlags.kDxt3 && method != SquishFlags.kDxt5) { method = SquishFlags.kDxt1; }
@@ -47,22 +48,23 @@ namespace Squish
         public static int GetStorageRequirements(int width, int height, SquishFlags flags)
         {
             // fix any bad flags
-            flags = FixFlags(flags);
+            flags = fixFlags(flags);
 
             // compute the storage requirements
-            int blockcount = ((width + 3) / 4) * ((height + 3) / 4);
-            int blocksize = ((flags & SquishFlags.kDxt1) != 0) ? 8 : 16;
+            int blockcount = (width + 3) / 4 * ((height + 3) / 4);
+            int blocksize = flags.HasFlag(SquishFlags.kDxt1) ? 8 : 16;
+
             return blockcount * blocksize;
         }
 
-        public static void DecompressImage(byte[] rgba, int width, int height, ref byte[] blocks, SquishFlags flags)
+        public static void DecompressImage(byte[] rgba, int width, int height, byte[] blocks, SquishFlags flags)
         {
             // fix any bad flags
-            flags = FixFlags(flags);
+            flags = fixFlags(flags);
 
             // initialise the block input
             int sourceBlock = 0;
-            int bytesPerBlock = ((flags & SquishFlags.kDxt1) != 0) ? 8 : 16;
+            int bytesPerBlock = flags.HasFlag(SquishFlags.kDxt1) ? 8 : 16;
 
             // loop over blocks
             for (int y = 0; y < height; y += 4)
@@ -71,10 +73,11 @@ namespace Squish
                 {
                     // decompress the block
                     byte[] targetRgba = new byte[4 * 16];
-                    Decompress(targetRgba, ref blocks, sourceBlock, flags);
+                    decompress(targetRgba, blocks, sourceBlock, flags);
 
                     // write the decompressed pixels to the correct image locations
                     int sourcePixel = 0;
+
                     for (int py = 0; py < 4; ++py)
                     {
                         for (int px = 0; px < 4; ++px)
@@ -82,6 +85,7 @@ namespace Squish
                             // get the target location
                             int sx = x + px;
                             int sy = y + py;
+
                             if (sx < width && sy < height)
                             {
                                 int targetPixel = 4 * (width * sy + sx);
@@ -109,92 +113,141 @@ namespace Squish
             }
         }
 
-        static void Decompress(byte[] rgba, ref byte[] block, int offset, SquishFlags flags)
+        private static void decompress(byte[] rgba, byte[] block, int offset, SquishFlags flags)
         {
             // fix any bad flags
-            flags = FixFlags(flags);
+            flags = fixFlags(flags);
 
             // get the block locations
             int colourBlock = offset;
             int alphaBlock = offset;
-            if ((flags & (SquishFlags.kDxt3 | SquishFlags.kDxt5)) != 0) { colourBlock += 8; }
+            if (flags.HasFlag(SquishFlags.kDxt3) | flags.HasFlag(SquishFlags.kDxt5)) { colourBlock += 8; }
 
             // decompress colour
-            ColourBlock.DecompressColour(rgba, ref block, colourBlock, (flags & SquishFlags.kDxt1) != 0);
+            ColourBlock.DecompressColour(rgba, block, colourBlock, flags.HasFlag(SquishFlags.kDxt1));
 
             // decompress alpha separately if necessary
-            if ((flags & SquishFlags.kDxt3) != 0)
+            if (flags.HasFlag(SquishFlags.kDxt3))
             {
                 throw new NotImplementedException("Squish.DecompressAlphaDxt3");
                 //DecompressAlphaDxt3(rgba, alphaBlock);
             }
-            else if ((flags & SquishFlags.kDxt5) != 0)
+            else if (flags.HasFlag(SquishFlags.kDxt5))
             {
-                DecompressAlphaDxt5(rgba, ref block, alphaBlock);
+                decompressAlphaDxt5(rgba, block, alphaBlock);
             }
         }
 
-        public static void CompressImage(byte[] rgba, int width, int height, ref byte[] blocks, SquishFlags flags)
+        public static void CompressImage(byte[] rgba, int width, int height, byte[] blocks, SquishFlags flags, bool parallel = false)
         {
             // fix any bad flags
-            flags = FixFlags(flags);
+            flags = fixFlags(flags);
 
             // initialise the block output
             int targetBlock = 0;
-            int bytesPerBlock = (flags.HasFlag(SquishFlags.kDxt1) ? 8 : 16);
+            int bytesPerBlock = flags.HasFlag(SquishFlags.kDxt1) ? 8 : 16;
 
-            // loop over blocks
-            for (int y = 0; y < height; y += 4)
+            if (parallel)
             {
-                for (int x = 0; x < width; x += 4)
+                // loop over blocks
+                Parallel.For(0, height / 4, (y) =>
                 {
-                    // build the 4x4 block of pixels
-                    byte[] sourceRgba = new byte[16 * 4];
-                    byte targetPixel = 0;
-                    int mask = 0;
-
-                    for (int py = 0; py < 4; ++py)
+                    Parallel.For(0, width / 4, (x) =>
                     {
-                        for (int px = 0; px < 4; ++px)
+                        // build the 4x4 block of pixels
+                        byte[] sourceRgba = new byte[16 * 4];
+                        byte targetPixel = 0;
+                        int mask = 0;
+
+                        for (int py = 0; py < 4; ++py)
                         {
-                            // get the source pixel in the image
-                            int sx = x + px;
-                            int sy = y + py;
-
-                            // enable if we're in the image
-                            if (sx < width && sy < height)
+                            for (int px = 0; px < 4; ++px)
                             {
-                                // copy the rgba value
-                                for (int i = 0; i < 4; ++i)
+                                // get the source pixel in the image
+                                int sx = x * 4 + px;
+                                int sy = y * 4 + py;
+
+                                // enable if we're in the image
+                                if (sx < width && sy < height)
                                 {
-                                    sourceRgba[targetPixel] = rgba[i + 4 * (width * sy + sx)];
-                                    targetPixel++;
-                                }
+                                    // copy the rgba value
+                                    for (int i = 0; i < 4; ++i)
+                                    {
+                                        sourceRgba[targetPixel] = rgba[i + 4 * (width * sy + sx)];
+                                        targetPixel++;
+                                    }
 
-                                // enable this pixel
-                                mask |= (1 << (4 * py + px));
-                            }
-                            else
-                            {
-                                // skip this pixel as its outside the image
-                                targetPixel += 4;
+                                    // enable this pixel
+                                    mask |= (1 << (4 * py + px));
+                                }
+                                else
+                                {
+                                    // skip this pixel as its outside the image
+                                    targetPixel += 4;
+                                }
                             }
                         }
+
+                        // compress it into the output
+                        compressMasked(sourceRgba, mask, blocks, (y * width / 4 * bytesPerBlock) + (x * bytesPerBlock), flags, null);
+                    });
+                });
+            }
+            else
+            {
+                // loop over blocks
+                for (int y = 0; y < height; y += 4)
+                {
+                    for (int x = 0; x < width; x += 4)
+                    {
+                        // build the 4x4 block of pixels
+                        byte[] sourceRgba = new byte[16 * 4];
+                        byte targetPixel = 0;
+                        int mask = 0;
+
+                        for (int py = 0; py < 4; ++py)
+                        {
+                            for (int px = 0; px < 4; ++px)
+                            {
+                                // get the source pixel in the image
+                                int sx = x + px;
+                                int sy = y + py;
+
+                                // enable if we're in the image
+                                if (sx < width && sy < height)
+                                {
+                                    // copy the rgba value
+                                    for (int i = 0; i < 4; ++i)
+                                    {
+                                        sourceRgba[targetPixel] = rgba[i + 4 * (width * sy + sx)];
+                                        targetPixel++;
+                                    }
+
+                                    // enable this pixel
+                                    mask |= (1 << (4 * py + px));
+                                }
+                                else
+                                {
+                                    // skip this pixel as its outside the image
+                                    targetPixel += 4;
+                                }
+                            }
+                        }
+
+                        // compress it into the output
+                        compressMasked(sourceRgba, mask, blocks, targetBlock, flags, null);
+
+                        // advance
+                        targetBlock += bytesPerBlock;
                     }
-
-                    // compress it into the output
-                    CompressMasked(sourceRgba, mask, ref blocks, targetBlock, flags, null);
-
-                    // advance
-                    targetBlock += bytesPerBlock;
                 }
             }
         }
 
-        static void CompressMasked(byte[] rgba, int mask, ref byte[] block, int offset, SquishFlags flags, float? metric)
+        private static void compressMasked(byte[] rgba, int mask, byte[] block, int offset, SquishFlags flags, float? metric)
         {
             // fix any bad flags
-            flags = FixFlags(flags);
+            flags = fixFlags(flags);
 
             // get the block locations
             int colourBlock = offset;
@@ -209,33 +262,33 @@ namespace Squish
             {
                 // always do a single colour fit
                 SingleColourFit fit = new SingleColourFit(colours, flags);
-                fit.Compress(ref block, colourBlock);
+                fit.Compress(block, colourBlock);
             }
             else if ((flags & SquishFlags.kColourRangeFit) != 0 || colours.Count == 0)
             {
                 // do a range fit
                 RangeFit fit = new RangeFit(colours, flags, metric);
-                fit.Compress(ref block, colourBlock);
+                fit.Compress(block, colourBlock);
             }
             else
             {
                 // default to a cluster fit (could be iterative or not)
                 ClusterFit fit = new ClusterFit(colours, flags, metric);
-                fit.Compress(ref block, colourBlock);
+                fit.Compress(block, colourBlock);
             }
 
             // compress alpha separately if necessary
             if ((flags & SquishFlags.kDxt3) != 0)
             {
-                CompressAlphaDxt3(rgba, mask, ref block, alphaBlock);
+                compressAlphaDxt3(rgba, mask, block, alphaBlock);
             }
             else if ((flags & SquishFlags.kDxt5) != 0)
             {
-                CompressAlphaDxt5(rgba, mask, ref block, alphaBlock);
+                compressAlphaDxt5(rgba, mask, block, alphaBlock);
             }
         }
 
-        static void CompressAlphaDxt3(byte[] rgba, int mask, ref byte[] block, int offset)
+        private static void compressAlphaDxt3(byte[] rgba, int mask, byte[] block, int offset)
         {
             // quantise and pack the alpha values pairwise
             for (int i = 0; i < 8; ++i)
@@ -249,32 +302,30 @@ namespace Squish
                 // set alpha to zero where masked
                 int bit1 = 1 << (2 * i);
                 int bit2 = 1 << (2 * i + 1);
-                if ((mask & bit1) == 0)
-                    quant1 = 0;
-                if ((mask & bit2) == 0)
-                    quant2 = 0;
+                if ((mask & bit1) == 0) { quant1 = 0; }
+                if ((mask & bit2) == 0) { quant2 = 0; }
 
                 // pack into the byte
                 block[i + offset] = (byte)(quant1 | (quant2 << 4));
             }
         }
 
-        static void FixRange(int min, int max, int steps)
+        private static void fixRange(int min, int max, int steps)
         {
-            if (max - min < steps)
-                max = Math.Min(min + steps, 255);
-            if (max - min < steps)
-                min = Math.Max(0, max - steps);
+            if (max - min < steps) { max = Math.Min(min + steps, 255); }
+            if (max - min < steps) { min = Math.Max(0, max - steps); }
         }
 
-        static int FitCodes(byte[] rgba, int mask, byte[] codes, byte[] indices)
+        private static int fitCodes(byte[] rgba, int mask, byte[] codes, byte[] indices)
         {
             // fit each alpha value to the codebook
             int err = 0;
+
             for (int i = 0; i < 16; ++i)
             {
                 // check this pixel is valid
                 int bit = 1 << i;
+
                 if ((mask & bit) == 0)
                 {
                     // use the first code
@@ -286,6 +337,7 @@ namespace Squish
                 int value = rgba[4 * i + 3];
                 int least = int.MaxValue;
                 int index = 0;
+
                 for (int j = 0; j < 8; ++j)
                 {
                     // get the squared error from this code
@@ -309,7 +361,7 @@ namespace Squish
             return err;
         }
 
-        static void WriteAlphaBlock(int alpha0, int alpha1, byte[] indices, ref byte[] block, int offset)
+        private static void writeAlphaBlock(int alpha0, int alpha1, byte[] indices, byte[] block, int offset)
         {
             // write the first two bytes
             block[offset + 0] = (byte)alpha0;
@@ -318,14 +370,17 @@ namespace Squish
             // pack the indices with 3 bits each
             int dest = offset + 2;
             int src = 0;
+
             for (int i = 0; i < 2; ++i)
             {
                 // pack 8 3-bit values
                 int value = 0;
+
                 for (int j = 0; j < 8; ++j)
                 {
                     int index = indices[src];
-                    value |= (index << 3 * j);
+
+                    value |= index << 3 * j;
                     src++;
                 }
 
@@ -333,136 +388,157 @@ namespace Squish
                 for (int j = 0; j < 3; ++j)
                 {
                     int b = (value >> 8 * j) & 0xff;
+
                     block[dest] = (byte)b;
                     dest++;
                 }
             }
         }
 
-        static void WriteAlphaBlock5(int alpha0, int alpha1, byte[] indices, ref byte[] block, int offset)
+        private static void writeAlphaBlock5(int alpha0, int alpha1, byte[] indices, byte[] block, int offset)
         {
             // check the relative values of the endpoints
             if (alpha0 > alpha1)
             {
                 // swap the indices
                 byte[] swapped = new byte[16];
+
                 for (int i = 0; i < 16; ++i)
                 {
                     byte index = indices[i];
+
                     if (index == 0)
+                    {
                         swapped[i] = 1;
+                    }
                     else if (index == 1)
+                    {
                         swapped[i] = 0;
+                    }
                     else if (index <= 5)
+                    {
                         swapped[i] = (byte)(7 - index);
+                    }
                     else
+                    {
                         swapped[i] = index;
+                    }
                 }
 
                 // write the block
-                WriteAlphaBlock(alpha1, alpha0, swapped, ref block, offset);
+                writeAlphaBlock(alpha1, alpha0, swapped, block, offset);
             }
             else
             {
                 // write the block
-                WriteAlphaBlock(alpha0, alpha1, indices, ref block, offset);
+                writeAlphaBlock(alpha0, alpha1, indices, block, offset);
             }
         }
 
-        static void WriteAlphaBlock7(int alpha0, int alpha1, byte[] indices, ref byte[] block, int offset)
+        private static void writeAlphaBlock7(int alpha0, int alpha1, byte[] indices, byte[] block, int offset)
         {
             // check the relative values of the endpoints
             if (alpha0 < alpha1)
             {
                 // swap the indices
                 byte[] swapped = new byte[16];
+
                 for (int i = 0; i < 16; ++i)
                 {
                     byte index = indices[i];
+
                     if (index == 0)
+                    {
                         swapped[i] = 1;
+                    }
                     else if (index == 1)
+                    {
                         swapped[i] = 0;
+                    }
                     else
+                    {
                         swapped[i] = (byte)(9 - index);
+                    }
                 }
 
                 // write the block
-                WriteAlphaBlock(alpha1, alpha0, swapped, ref block, offset);
+                writeAlphaBlock(alpha1, alpha0, swapped, block, offset);
             }
             else
             {
                 // write the block
-                WriteAlphaBlock(alpha0, alpha1, indices, ref block, offset);
+                writeAlphaBlock(alpha0, alpha1, indices, block, offset);
             }
         }
 
-        static void CompressAlphaDxt5( byte[] rgba, int mask, ref byte[] block, int offset )
+        private static void compressAlphaDxt5(byte[] rgba, int mask, byte[] block, int offset)
         {
             // get the range for 5-alpha and 7-alpha interpolation
             int min5 = 255;
             int max5 = 0;
             int min7 = 255;
             int max7 = 0;
-            for( int i = 0; i < 16; ++i )
-            {
-                    // check this pixel is valid
-                    int bit = 1 << i;
-                    if( ( mask & bit ) == 0 )
-                            continue;
 
-                    // incorporate into the min/max
-                    int value = rgba[4*i + 3];
-                    if( value < min7 )
-                            min7 = value;
-                    if( value > max7 )
-                            max7 = value;
-                    if( value != 0 && value < min5 )
-                            min5 = value;
-                    if( value != 255 && value > max5 )
-                            max5 = value;
+            for (int i = 0; i < 16; ++i)
+            {
+                // check this pixel is valid
+                int bit = 1 << i;
+
+                if ((mask & bit) == 0) { continue; }
+
+                // incorporate into the min/max
+                int value = rgba[4 * i + 3];
+                if (value < min7) { min7 = value; }
+                if (value > max7) { max7 = value; }
+                if (value != 0 && value < min5) { min5 = value; }
+                if (value != 255 && value > max5) { max5 = value; }
             }
-        
+
             // handle the case that no valid range was found
-            if( min5 > max5 )
-                    min5 = max5;
-            if( min7 > max7 )
-                    min7 = max7;
-                
+            if (min5 > max5) { min5 = max5; }
+            if (min7 > max7) { min7 = max7; }
+
             // fix the range to be the minimum in each case
-            FixRange( min5, max5, 5 );
-            FixRange( min7, max7, 7 );
-        
+            fixRange(min5, max5, 5);
+            fixRange(min7, max7, 7);
+
             // set up the 5-alpha code book
             byte[] codes5 = new byte[8];
-            codes5[0] = ( byte )min5;
-            codes5[1] = ( byte )max5;
-            for( int i = 1; i < 5; ++i )
-                    codes5[1 + i] = ( byte )( ( ( 5 - i )*min5 + i*max5 )/5 );
+
+            codes5[0] = (byte)min5;
+            codes5[1] = (byte)max5;
+
+            for (int i = 1; i < 5; ++i) { codes5[1 + i] = (byte)(((5 - i) * min5 + i * max5) / 5); }
+
             codes5[6] = 0;
             codes5[7] = 255;
-        
+
             // set up the 7-alpha code book
             byte[] codes7 = new byte[8];
-            codes7[0] = ( byte )min7;
-            codes7[1] = ( byte )max7;
-            for( int i = 1; i < 7; ++i )
-                    codes7[1 + i] = ( byte )( ( ( 7 - i )*min7 + i*max7 )/7 );
-                
+
+            codes7[0] = (byte)min7;
+            codes7[1] = (byte)max7;
+
+            for (int i = 1; i < 7; ++i) { codes7[1 + i] = (byte)(((7 - i) * min7 + i * max7) / 7); }
+
             // fit the data to both code books
             byte[] indices5 = new byte[16];
             byte[] indices7 = new byte[16];
-            int err5 = FitCodes( rgba, mask, codes5, indices5 );
-            int err7 = FitCodes( rgba, mask, codes7, indices7 );
-        
+            int err5 = fitCodes(rgba, mask, codes5, indices5);
+            int err7 = fitCodes(rgba, mask, codes7, indices7);
+
             // save the block with least error
-            if( err5 <= err7 )
-                    WriteAlphaBlock5( min5, max5, indices5, ref block, offset );
+            if (err5 <= err7)
+            {
+                writeAlphaBlock5(min5, max5, indices5, block, offset);
+            }
             else
-                    WriteAlphaBlock7( min7, max7, indices7, ref block, offset );
+            {
+                writeAlphaBlock7(min7, max7, indices7, block, offset);
+            }
         }
 
-        static void DecompressAlphaDxt5(byte[] rgba, ref byte[] block, int offset)
+        private static void decompressAlphaDxt5(byte[] rgba, byte[] block, int offset)
         {
             // get the two alpha values
             int alpha0 = block[offset + 0];
@@ -472,6 +548,7 @@ namespace Squish
             byte[] codes = new byte[8];
             codes[0] = (byte)alpha0;
             codes[1] = (byte)alpha1;
+
             if (alpha0 <= alpha1)
             {
                 // use 5-alpha codebook
@@ -495,6 +572,7 @@ namespace Squish
             byte[] indices = new byte[16];
             int src = offset + 2;
             int dest = 0;
+
             for (int i = 0; i < 2; ++i)
             {
                 // grab 3 bytes

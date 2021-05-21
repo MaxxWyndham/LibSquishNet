@@ -1,21 +1,20 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 
 namespace Squish
 {
     public class Sym3x3
     {
-        float[] m_x = new float[6];
+        private float[] X { get; set; } = new float[6];
 
         public float this[int i]
         {
-            get { return m_x[i]; }
-            set { m_x[i] = value; }
+            get => X[i];
+            set => X[i] = value;
         }
 
         public Sym3x3(float s)
         {
-            for (int i = 0; i < 6; i++) { m_x[i] = s; }
+            for (int i = 0; i < 6; i++) { X[i] = s; }
         }
 
         public static Sym3x3 ComputeWeightedCovariance(int n, Vector3[] points, float[] weights)
@@ -23,15 +22,18 @@ namespace Squish
             // compute the centroid
             float total = 0.0f;
             Vector3 centroid = new Vector3(0.0f);
+
             for (int i = 0; i < n; ++i)
             {
                 total += weights[i];
                 centroid += weights[i] * points[i];
             }
+
             if (total > float.Epsilon) { centroid /= total; }
 
             // accumulate the covariance matrix
             Sym3x3 covariance = new Sym3x3(0.0f);
+
             for (int i = 0; i < n; ++i)
             {
                 Vector3 a = points[i] - centroid;
@@ -55,6 +57,7 @@ namespace Squish
             Vector4 row1 = new Vector4(matrix[1], matrix[3], matrix[4], 0.0f);
             Vector4 row2 = new Vector4(matrix[2], matrix[4], matrix[5], 0.0f);
             Vector4 v = new Vector4(1.0f);
+
             for (int i = 0; i < 8; ++i)
             {
                 // matrix multiply

@@ -5,39 +5,40 @@ namespace Squish
 {
     public class ColourSet
     {
-        int m_count = 0;
-        Vector3[] m_points = new Vector3[16];
-        float[] m_weights = new float[16];
-        int[] m_remap = new int[16];
-        bool m_transparent = false;
+        public int Count { get; set; } = 0;
 
-        public int Count { get { return m_count; } }
-        public bool IsTransparent { get { return m_transparent; } }
-        public Vector3[] Points { get { return m_points; } }
-        public float[] Weights { get { return m_weights; } }
+        public Vector3[] Points { get; set; } = new Vector3[16];
+
+        public float[] Weights { get; set; } = new float[16];
+
+        private int[] Remap { get; set; } = new int[16];
+
+        public bool IsTransparent { get; set; } = false;
 
         public ColourSet(byte[] rgba, int mask, SquishFlags flags)
         {
             // check the compression mode for dxt1
-            bool isDxt1 = ((flags & SquishFlags.kDxt1) != 0);
-            bool weightByAlpha = ((flags & SquishFlags.kWeightColourByAlpha) != 0);
+            bool isDxt1 = flags.HasFlag(SquishFlags.kDxt1);
+            bool weightByAlpha = flags.HasFlag(SquishFlags.kWeightColourByAlpha);
 
             // create the minimal set
             for (int i = 0; i < 16; ++i)
             {
                 // check this pixel is enabled
                 int bit = 1 << i;
+
                 if ((mask & bit) == 0)
                 {
-                    m_remap[i] = -1;
+                    Remap[i] = -1;
                     continue;
                 }
 
                 // check for transparent pixels when using dxt1
                 if (isDxt1 && rgba[4 * i + 3] < 128)
                 {
-                    m_remap[i] = -1;
-                    m_transparent = true;
+                    Remap[i] = -1;
+                    IsTransparent = true;
+
                     continue;
                 }
 
@@ -48,50 +49,51 @@ namespace Squish
                     if (j == i)
                     {
                         // normalise coordinates to [0,1]
-                        float x = (float)rgba[4 * i] / 255.0f;
-                        float y = (float)rgba[4 * i + 1] / 255.0f;
-                        float z = (float)rgba[4 * i + 2] / 255.0f;
+                        float x = rgba[4 * i] / 255.0f;
+                        float y = rgba[4 * i + 1] / 255.0f;
+                        float z = rgba[4 * i + 2] / 255.0f;
 
                         // ensure there is always non-zero weight even for zero alpha
-                        float w = (float)(rgba[4 * i + 3] + 1) / 256.0f;
+                        float w = (rgba[4 * i + 3] + 1) / 256.0f;
 
                         // add the point
-                        m_points[m_count] = new Vector3(x, y, z);
-                        m_weights[m_count] = (weightByAlpha ? w : 1.0f);
-                        m_remap[i] = m_count;
+                        Points[Count] = new Vector3(x, y, z);
+                        Weights[Count] = weightByAlpha ? w : 1.0f;
+                        Remap[i] = Count;
 
                         // advance
-                        ++m_count;
+                        ++Count;
                         break;
                     }
 
                     // check for a match
                     int oldbit = 1 << j;
-                    bool match = ((mask & oldbit) != 0)
-                            && (rgba[4 * i] == rgba[4 * j])
-                            && (rgba[4 * i + 1] == rgba[4 * j + 1])
-                            && (rgba[4 * i + 2] == rgba[4 * j + 2])
-                            && (rgba[4 * j + 3] >= 128 || !isDxt1);
+                    bool match = ((mask & oldbit) != 0) &&
+                        (rgba[4 * i] == rgba[4 * j]) &&
+                        (rgba[4 * i + 1] == rgba[4 * j + 1]) &&
+                        (rgba[4 * i + 2] == rgba[4 * j + 2]) &&
+                        (rgba[4 * j + 3] >= 128 || !isDxt1);
+
                     if (match)
                     {
                         // get the index of the match
-                        int index = m_remap[j];
+                        int index = Remap[j];
 
                         // ensure there is always non-zero weight even for zero alpha
-                        float w = (float)(rgba[4 * i + 3] + 1) / 256.0f;
+                        float w = (rgba[4 * i + 3] + 1) / 256.0f;
 
                         // map to this point and increase the weight
-                        m_weights[index] += (weightByAlpha ? w : 1.0f);
-                        m_remap[i] = index;
+                        Weights[index] += (weightByAlpha ? w : 1.0f);
+                        Remap[i] = index;
                         break;
                     }
                 }
             }
 
             // square root the weights
-            for (int i = 0; i < m_count; ++i)
+            for (int i = 0; i < Count; ++i)
             {
-                m_weights[i] = (float)Math.Sqrt(m_weights[i]);
+                Weights[i] = (float)Math.Sqrt(Weights[i]);
             }
         }
 
@@ -99,7 +101,7 @@ namespace Squish
         {
             for (int i = 0; i < 16; ++i)
             {
-                int j = m_remap[i];
+                int j = Remap[i];
                 if (j == -1)
                 {
                     target[i] = 3;

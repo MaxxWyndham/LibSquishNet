@@ -1,5 +1,4 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 
 namespace Squish
 {
@@ -12,15 +11,19 @@ namespace Squish
 
             // clamp to the limit
             if (i < 0)
+            {
                 i = 0;
+            }
             else if (i > limit)
+            {
                 i = limit;
+            }
 
             // done
             return i;
         }
 
-        static int FloatTo565(Vector3 colour)
+        private static int floatTo565(Vector3 colour)
         {
             // get the components in the correct range
             int r = FloatToInt(31.0f * colour.X, 31);
@@ -31,7 +34,7 @@ namespace Squish
             return (r << 11) | (g << 5) | b;
         }
 
-        static void WriteColourBlock(int a, int b, byte[] indices, ref byte[] block, int offset)
+        private static void writeColourBlock(int a, int b, byte[] indices, byte[] block, int offset)
         {
             // write the endpoints
             block[offset + 0] = (byte)(a & 0xff);
@@ -46,11 +49,11 @@ namespace Squish
             }
         }
 
-        public static void WriteColourBlock3(Vector3 start, Vector3 end, byte[] indices, ref byte[] block, int offset)
+        public static void WriteColourBlock3(Vector3 start, Vector3 end, byte[] indices, byte[] block, int offset)
         {
             // get the packed values
-            int a = FloatTo565(start);
-            int b = FloatTo565(end);
+            int a = floatTo565(start);
+            int b = floatTo565(end);
 
             // remap the indices
             byte[] remapped = new byte[16];
@@ -58,7 +61,9 @@ namespace Squish
             {
                 // use the indices directly
                 for (int i = 0; i < 16; ++i)
+                {
                     remapped[i] = indices[i];
+                }
             }
             else
             {
@@ -66,26 +71,33 @@ namespace Squish
                 int t = a;
                 a = b;
                 b = t;
+
                 for (int i = 0; i < 16; ++i)
                 {
                     if (indices[i] == 0)
+                    {
                         remapped[i] = 1;
+                    }
                     else if (indices[i] == 1)
+                    {
                         remapped[i] = 0;
+                    }
                     else
+                    {
                         remapped[i] = indices[i];
+                    }
                 }
             }
 
             // write the block
-            WriteColourBlock(a, b, remapped, ref block, offset);
+            writeColourBlock(a, b, remapped, block, offset);
         }
 
-        public static void WriteColourBlock4(Vector3 start, Vector3 end, byte[] indices, ref byte[] block, int offset)
+        public static void WriteColourBlock4(Vector3 start, Vector3 end, byte[] indices, byte[] block, int offset)
         {
             // get the packed values
-            int a = FloatTo565(start);
-            int b = FloatTo565(end);
+            int a = floatTo565(start);
+            int b = floatTo565(end);
 
             // remap the indices
             byte[] remapped = new byte[16];
@@ -95,27 +107,34 @@ namespace Squish
                 int t = a;
                 a = b;
                 b = t;
+
                 for (int i = 0; i < 16; ++i)
+                {
                     remapped[i] = (byte)((indices[i] ^ 0x1) & 0x3);
+                }
             }
             else if (a == b)
             {
                 // use index 0
                 for (int i = 0; i < 16; ++i)
+                {
                     remapped[i] = 0;
+                }
             }
             else
             {
                 // use the indices directly
                 for (int i = 0; i < 16; ++i)
+                {
                     remapped[i] = indices[i];
+                }
             }
 
             // write the block
-            WriteColourBlock(a, b, remapped, ref block, offset);
+            writeColourBlock(a, b, remapped, block, offset);
         }
 
-        static int Unpack565(byte[] packed, int offset, byte[] colour, int colouroffset)
+        private static int unpack565(byte[] packed, int offset, byte[] colour, int colouroffset)
         {
             // build the packed value
             int value = (int)packed[offset + 0] | ((int)packed[offset + 1] << 8);
@@ -135,12 +154,12 @@ namespace Squish
             return value;
         }
 
-        public static void DecompressColour(byte[] rgba, ref byte[] block, int offset, bool isDxt1)
+        public static void DecompressColour(byte[] rgba, byte[] block, int offset, bool isDxt1)
         {
             // unpack the endpoints
             byte[] codes = new byte[16];
-            int a = Unpack565(block, offset, codes, 0);
-            int b = Unpack565(block, offset + 2, codes, 4);
+            int a = unpack565(block, offset, codes, 0);
+            int b = unpack565(block, offset + 2, codes, 4);
 
             // generate the midpoints
             for (int i = 0; i < 3; ++i)
@@ -166,6 +185,7 @@ namespace Squish
 
             // unpack the indices
             byte[] indices = new byte[16];
+
             for (int i = 0; i < 4; ++i)
             {
                 int ind = 4 * i;

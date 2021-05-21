@@ -1,0 +1,36 @@
+name: Build and deploy nuget package
+ 
+on: 
+  push:
+    branches:
+      - main
+ 
+jobs:
+  build:
+ 
+    runs-on: windows-latest
+ 
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v1
+
+    - name: Setup MSBuild Path
+      uses: microsoft/setup-msbuild@v1.0.2
+       
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1.0.5
+     
+    - name: Restore NuGet Packages
+      run: msbuild -t:restore
+ 
+    - name: Build
+      run: msbuild -t:build -p:Configuration=Release
+      
+    - name: Pack
+      run: msbuild -t:pack -p:Configuration=Release
+
+    - name: Configure nuget
+      run: nuget setapikey ${{secrets.NUGET_API_KEY}}
+
+    - name: Publish
+      run: nuget push LibSquishNet\bin\Release\*.nupkg -SkipDuplicate -source https://api.nuget.org/v3/index.json

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 
 namespace Squish
 {
@@ -16,7 +15,7 @@ namespace Squish
             : base(colours, flags)
         {
             // grab the single colour
-            Vector3[] values = m_colours.Points;
+            Vector3[] values = Colours.Points;
             m_colour[0] = (byte)ColourBlock.FloatToInt(255.0f * values[0].X, 255);
             m_colour[1] = (byte)ColourBlock.FloatToInt(255.0f * values[0].Y, 255);
             m_colour[2] = (byte)ColourBlock.FloatToInt(255.0f * values[0].Z, 255);
@@ -67,14 +66,14 @@ namespace Squish
             }
         }
 
-        public override void Compress3(ref byte[] block, int offset)
+        public override void Compress3(byte[] block, int offset)
         {
             // build the table of lookups
             SingleColourLookup[][] lookups = new SingleColourLookup[][]
             {
-                SingleColourLookupIns.lookup_5_3, 
-                SingleColourLookupIns.lookup_6_3, 
-                SingleColourLookupIns.lookup_5_3
+                SingleColourLookupIns.Lookup53, 
+                SingleColourLookupIns.Lookup63, 
+                SingleColourLookupIns.Lookup53
             };
 
             // find the best end-points and index
@@ -85,24 +84,24 @@ namespace Squish
             {
                 // remap the indices
                 byte[] indices = new byte[16];
-                m_colours.RemapIndices(new byte[] { m_index }, indices);
+                Colours.RemapIndices(new byte[] { m_index }, indices);
 
                 // save the block
-                ColourBlock.WriteColourBlock3(m_start, m_end, indices, ref block, offset);
+                ColourBlock.WriteColourBlock3(m_start, m_end, indices, block, offset);
 
                 // save the error
                 m_besterror = m_error;
             }
         }
 
-        public override void Compress4(ref byte[] block, int offset)
+        public override void Compress4(byte[] block, int offset)
         {
             // build the table of lookups
             SingleColourLookup[][] lookups = new SingleColourLookup[][]
             {
-                SingleColourLookupIns.lookup_5_4, 
-                SingleColourLookupIns.lookup_6_4, 
-                SingleColourLookupIns.lookup_5_4
+                SingleColourLookupIns.Lookup54, 
+                SingleColourLookupIns.Lookup64, 
+                SingleColourLookupIns.Lookup54
             };
         
             // find the best end-points and index
@@ -113,10 +112,10 @@ namespace Squish
             {
                     // remap the indices
                     byte[] indices = new byte[16];
-                    m_colours.RemapIndices(new byte[] { m_index }, indices);
+                    Colours.RemapIndices(new byte[] { m_index }, indices);
                 
                     // save the block
-                    ColourBlock.WriteColourBlock4( m_start, m_end, indices, ref block, offset );
+                    ColourBlock.WriteColourBlock4( m_start, m_end, indices, block, offset );
 
                     // save the error
                     m_besterror = m_error;

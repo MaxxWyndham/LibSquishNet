@@ -1,37 +1,38 @@
-﻿using System;
-
-namespace Squish
+﻿namespace Squish
 {
     public class ColourFit
     {
-        protected ColourSet m_colours;
-        protected SquishFlags m_flags;
+        protected ColourSet Colours { get; set; }
+
+        protected SquishFlags Flags { get; set; }
 
         public ColourFit(ColourSet colours, SquishFlags flags)
         {
-            m_colours = colours;
-            m_flags = flags;
+            Colours = colours;
+            Flags = flags;
         }
 
-        public void Compress(ref byte[] block, int offset)
+        public void Compress(byte[] block, int offset)
         {
-            bool isDxt1 = ((m_flags & SquishFlags.kDxt1) != 0);
+            bool isDxt1 = Flags.HasFlag(SquishFlags.kDxt1);
 
             if (isDxt1)
             {
-                Compress3(ref block, offset);
+                Compress3(block, offset);
 
-                if (!m_colours.IsTransparent) {
-                    Compress4(ref block, offset);
+                if (!Colours.IsTransparent)
+                {
+                    Compress4(block, offset);
                 }
             }
             else
             {
-                Compress4(ref block, offset);
+                Compress4(block, offset);
             }
         }
 
-        public virtual void Compress3(ref byte[] block, int offset) { }
-        public virtual void Compress4(ref byte[] block, int offset) { }
+        public virtual void Compress3(byte[] block, int offset) { }
+
+        public virtual void Compress4(byte[] block, int offset) { }
     }
 }

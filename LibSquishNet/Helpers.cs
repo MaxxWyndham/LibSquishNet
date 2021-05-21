@@ -46,16 +46,20 @@ namespace Squish
 
         public static bool CompareAnyLessThan(Vector4 left, Vector4 right)
         {
-            return left.X < right.X
-                    || left.Y < right.Y
-                    || left.Z < right.Z
-                    || left.W < right.W;
+            return left.X < right.X ||
+                    left.Y < right.Y ||
+                    left.Z < right.Z ||
+                    left.W < right.W;
         }
 
         public static Vector4 SplatX(this Vector4 v) { return new Vector4(v.X); }
+
         public static Vector4 SplatY(this Vector4 v) { return new Vector4(v.Y); }
+
         public static Vector4 SplatZ(this Vector4 v) { return new Vector4(v.Z); }
+
         public static Vector4 SplatW(this Vector4 v) { return new Vector4(v.W); }
+
 
         public static Vector3 ToVector3(this Vector4 v)
         {

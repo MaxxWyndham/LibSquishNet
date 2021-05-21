@@ -27,9 +27,9 @@ namespace Squish
             m_besterror = float.MaxValue;
 
             // cache some values
-            int count = m_colours.Count;
-            Vector3[] values = m_colours.Points;
-            float[] weights = m_colours.Weights;
+            int count = Colours.Count;
+            Vector3[] values = Colours.Points;
+            float[] weights = Colours.Weights;
 
             // get the covariance matrix
             Sym3x3 covariance = Sym3x3.ComputeWeightedCovariance(count, values, weights);
@@ -77,11 +77,11 @@ namespace Squish
             m_end = Helpers.Truncate(grid * end + half) * gridrcp;
         }
 
-        public override void Compress3(ref byte[] block, int offset)
+        public override void Compress3(byte[] block, int offset)
         {
             // cache some values
-            int count = m_colours.Count;
-            Vector3[] values = m_colours.Points;
+            int count = Colours.Count;
+            Vector3[] values = Colours.Points;
 
             // create a codebook
             Vector3[] codes = new Vector3[3];
@@ -119,17 +119,17 @@ namespace Squish
             {
                 // remap the indices
                 byte[] indices = new byte[16];
-                m_colours.RemapIndices(closest, indices);
+                Colours.RemapIndices(closest, indices);
 
                 // save the block
-                ColourBlock.WriteColourBlock3(m_start, m_end, indices, ref block, offset);
+                ColourBlock.WriteColourBlock3(m_start, m_end, indices, block, offset);
 
                 // save the error
                 m_besterror = error;
             }
         }
 
-        public override void Compress4(ref byte[] block, int offset) 
+        public override void Compress4(byte[] block, int offset) 
         {
             throw new NotImplementedException("RangeFit.Compress4");
         }
