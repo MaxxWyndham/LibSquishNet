@@ -1,6 +1,6 @@
 **LibSquishNet v2.0.0**
 
-A partial port of Simon Brown's v1.11 libsquish to .NET Framework
+A partial port of Simon Brown's v1.11 libsquish to .NET Framework 4.6
 
 Original project is available here https://code.google.com/p/libsquish/
 
