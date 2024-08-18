@@ -11,26 +11,26 @@ jobs:
     runs-on: windows-latest
  
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v1
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Setup MSBuild Path
-      uses: microsoft/setup-msbuild@v1.0.2
-       
-    - name: Setup NuGet
-      uses: NuGet/setup-nuget@v1.0.5
-     
-    - name: Restore NuGet Packages
-      run: msbuild -t:restore
- 
-    - name: Build
-      run: msbuild -t:build -p:Configuration=Release
-      
-    - name: Pack
-      run: msbuild -t:pack -p:Configuration=Release
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: | 
+            4.6.2
+            4.8.1
+            6.0.x
+            8.0.x
 
-    - name: Configure nuget
-      run: nuget setapikey ${{secrets.NUGET_API_KEY}}
+      - name: Restore NuGet Packages
+        run: dotnet restore /p:Platform="Any CPU"
 
-    - name: Publish
-      run: nuget push LibSquishNet\bin\Release\*.nupkg -SkipDuplicate -source https://api.nuget.org/v3/index.json
+      - name: Build
+        run: dotnet build --configuration Release /p:Platform="Any CPU"
+
+      - name: Pack
+        run: dotnet pack --configuration Release /p:Platform="Any CPU"
+
+      - name: Publish
+        run: dotnet nuget push LibSquishNet\bin\Release\*.nupkg --skip-duplicate --source https://api.nuget.org/v3/index.json --key ${{ secrets.NUGET_API_KEY }}
